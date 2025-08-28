@@ -25,7 +25,15 @@ const app = express();
 const server = http.createServer(app);
 app.set('trust proxy', 1);
 
+
 // ---------- CORS Configuration ----------
+// ---------- CORS Configuration ----------
+
+
+// Add development URLs
+
+
+
 const allowlist = (process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
   .split(',')
   .map(s => s.trim())
@@ -42,7 +50,8 @@ if (process.env.NODE_ENV === 'development') {
     'http://127.0.0.1:8000',
     'http://localhost:5500',
     'http://127.0.0.1:5500',
-      "http://127.0.0.1:5501"
+    'http://localhost:5501',     
+    'http://127.0.0.1:5501'      
   );
 }
 
@@ -63,7 +72,29 @@ app.use(cors({
   credentials: true,
   optionsSuccessStatus: 200
 }));
+// Update your CORS configuration to be more permissive in development
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowlist.includes(origin)) {
+      callback(null, true);
+    } else {
+      // Instead of blocking, allow all in development
+      if (process.env.NODE_ENV === 'development') {
+        callback(null, true);
+      } else {
+        console.log('CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+};
 
+app.use(cors(corsOptions));
 // ---------- Security Middleware ----------
 // Helmet with proper CSP
 const cspConnectSources = ["'self'", ...allowlist.filter(url => url.startsWith('http'))];
@@ -281,7 +312,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📈 Dashboard API: http://localhost:${PORT}/api/dashboard`);
   console.log('================================');
   console.log(`⚡ Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🗄️ Database: ${mongoUri.includes('localhost') ? 'Local MongoDB' : 'Remote MongoDB'}`);
+  console.log(`🗄 Database: ${mongoUri.includes('localhost') ? 'Local MongoDB' : 'Remote MongoDB'}`);
   console.log('================================\n');
 });
 
