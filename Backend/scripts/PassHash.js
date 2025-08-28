@@ -2,7 +2,7 @@
 const argon2 = require('argon2');
 
 (async () => {
-  const hash = await argon2.hash("test@1234");
+  const hash = await argon2.hash("Admin@1234");
   console.log("New Hash:", hash);
 })();
 

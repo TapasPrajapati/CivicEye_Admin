@@ -1,6 +1,5 @@
-// dashboard.js - Fixed version to show real backend data
+// dashboard.js - Version using local JSON mock data
 document.addEventListener('DOMContentLoaded', function() {
-    // Check authentication first
     const token = localStorage.getItem('authToken');
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     
@@ -10,17 +9,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    // Display username in header
+    // Display username
     const usernameElement = document.getElementById('username-display');
     if (usernameElement && userData.username) {
         usernameElement.textContent = userData.username;
     }
 
-    // Sidebar toggle functionality
+    // Sidebar toggle
     const sidebarCollapse = document.getElementById('sidebarCollapse');
     const sidebar = document.querySelector('.sidebar');
     const main = document.querySelector('.main');
-
     if (sidebarCollapse && sidebar && main) {
         sidebarCollapse.addEventListener('click', function() {
             sidebar.classList.toggle('active');
@@ -28,22 +26,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialize dashboard with authentication
+    // Init dashboard
     initializeDashboard(token);
 
-    // Chart period buttons functionality
+    // Chart period buttons
     const chartPeriodButtons = document.querySelectorAll('.chart-period button');
     chartPeriodButtons.forEach(button => {
         button.addEventListener('click', function() {
-            this.parentElement.querySelectorAll('button').forEach(btn => {
-                btn.classList.remove('active');
-            });
+            this.parentElement.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             this.classList.add('active');
             updateCharts(this.dataset.period, token);
         });
     });
 
-    // Logout functionality
+    // Logout
     const logoutBtn = document.querySelector('.logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function() {
@@ -53,15 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Quick action buttons
-    const actionButtons = document.querySelectorAll('.action-btn');
-    actionButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            handleQuickAction(this.dataset.action, token);
-        });
-    });
-
-    // Refresh button functionality
+    // Refresh button
     const refreshBtn = document.getElementById('refreshDashboard');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', function() {
@@ -72,25 +60,23 @@ document.addEventListener('DOMContentLoaded', function() {
     async function initializeDashboard(token) {
         try {
             showLoadingState(true);
-            
-            console.log('🔄 Fetching real data from backend...');
-            
-            // Fetch all dashboard data in parallel
+
+            console.log('🔄 Fetching local mock data...');
+
             const [statsData, chartsData, activityData, notificationsData] = await Promise.all([
-                fetchDashboardStats(token),
-                fetchDashboardCharts(token, 'week'),
-                fetchRecentActivity(token),
-                fetchNotifications(token)
+                fetchDashboardStats(),
+                fetchDashboardCharts(),
+                fetchRecentActivity(),
+                fetchNotifications()
             ]);
-            
-            console.log('✅ Backend data received:', {
+
+            console.log('✅ Data received:', {
                 stats: statsData ? 'Received' : 'Failed',
                 charts: chartsData ? 'Received' : 'Failed',
                 activity: activityData ? 'Received' : 'Failed',
                 notifications: notificationsData ? 'Received' : 'Failed'
             });
-            
-            // Update all dashboard components
+
             updateStats(statsData);
             initCharts(chartsData);
             updateActivity(activityData);
@@ -98,147 +84,68 @@ document.addEventListener('DOMContentLoaded', function() {
 
         } catch (error) {
             console.error('Dashboard initialization error:', error);
-            showError('Failed to load dashboard data. Please check if the backend server is running.');
+            showError('Failed to load dashboard data.');
         } finally {
             showLoadingState(false);
         }
     }
 
-    // API Functions - REMOVED MOCK DATA FALLBACK
-    async function fetchDashboardStats(token) {
+    // ---------------- Mock API Functions ----------------
+    async function fetchDashboardStats() {
         try {
-            console.log('📊 Fetching dashboard stats from API...');
-            const response = await fetch('/api/dashboard/stats', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.status === 401) {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('user');
-                window.location.href = 'index.html';
-                return null;
-            }
-
-            if (!response.ok) {
-                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-            }
-
+            const response = await fetch('./mock_api/dashboard-stats.json');
             const data = await response.json();
-            console.log('📊 Stats data:', data);
             return data.data;
-        } catch (error) {
-            console.error('❌ Error fetching stats:', error);
-            // RETURN NULL INSTEAD OF MOCK DATA
+        } catch (err) {
+            console.error('❌ Error loading stats:', err);
             return null;
         }
     }
 
-    async function fetchDashboardCharts(token, period = 'week') {
+    async function fetchDashboardCharts() {
         try {
-            console.log('📈 Fetching charts data from API...');
-            const response = await fetch(`/api/dashboard/charts?period=${period}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.status === 401) {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('user');
-                window.location.href = 'index.html';
-                return null;
-            }
-
-            if (!response.ok) {
-                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-            }
-
+            const response = await fetch('./mock_api/dashboard-charts.json');
             const data = await response.json();
-            console.log('📈 Charts data:', data);
             return data.data;
-        } catch (error) {
-            console.error('❌ Error fetching charts:', error);
-            // RETURN NULL INSTEAD OF MOCK DATA
+        } catch (err) {
+            console.error('❌ Error loading charts:', err);
             return null;
         }
     }
 
-    async function fetchRecentActivity(token) {
+    async function fetchRecentActivity() {
         try {
-            console.log('📋 Fetching activity data from API...');
-            const response = await fetch('/api/dashboard/activity', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.status === 401) {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('user');
-                window.location.href = 'index.html';
-                return null;
-            }
-
-            if (!response.ok) {
-                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-            }
-
+            const response = await fetch('./mock_api/dashboard-activity.json');
             const data = await response.json();
-            console.log('📋 Activity data:', data);
             return data.data?.activity || [];
-        } catch (error) {
-            console.error('❌ Error fetching activity:', error);
-            // RETURN EMPTY ARRAY INSTEAD OF MOCK DATA
+        } catch (err) {
+            console.error('❌ Error loading activity:', err);
             return [];
         }
     }
 
-    async function fetchNotifications(token) {
+    async function fetchNotifications() {
         try {
-            console.log('🔔 Fetching notifications from API...');
-            const response = await fetch('/api/notifications', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.status === 401) {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('user');
-                window.location.href = 'index.html';
-                return [];
-            }
-
-            if (!response.ok) {
-                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-            }
-
+            const response = await fetch('./mock_api/notifications.json');
             const data = await response.json();
-            console.log('🔔 Notifications data:', data);
             return data.data || [];
-        } catch (error) {
-            console.error('❌ Error fetching notifications:', error);
-            // RETURN EMPTY ARRAY INSTEAD OF MOCK DATA
+        } catch (err) {
+            console.error('❌ Error loading notifications:', err);
             return [];
         }
     }
 
+    // ---------------- UI Update Functions ----------------
     function updateStats(data) {
         if (!data || !data.overview) {
-            console.error('❌ No stats data received from backend');
-            showError('Could not load dashboard statistics. Please check your backend connection.');
+            console.error('❌ No stats data received');
+            showError('Could not load dashboard statistics.');
             return;
         }
         
         const stats = data.overview;
-        console.log('🔄 Updating stats with real data:', stats);
-        
+        console.log('🔄 Updating stats:', stats);
+
         const statElements = [
             { selector: '.stats-card:nth-child(1) h2', value: stats.activeUsers || 0 },
             { selector: '.stats-card:nth-child(2) h2', value: stats.totalIncidents || 0 },
@@ -248,12 +155,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         statElements.forEach(stat => {
             const el = document.querySelector(stat.selector);
-            if (el) {
-                animateValue(el, 0, stat.value, 1000);
-            }
+            if (el) animateValue(el, 0, stat.value, 1000);
         });
 
-        // Update percentage changes only if trends data exists
         if (stats.trends) {
             const changeElements = [
                 { selector: '.stats-card:nth-child(1) .stats-card-change', value: stats.trends.activeUsers || 0 },
@@ -270,9 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         `<i class="fas fa-arrow-up"></i><span>${Math.abs(change.value)}%</span>` :
                         `<i class="fas fa-arrow-down"></i><span>${Math.abs(change.value)}%</span>`;
                     
-                    el.className = isPositive ? 
-                        'stats-card-change positive' : 
-                        'stats-card-change negative';
+                    el.className = isPositive ? 'stats-card-change positive' : 'stats-card-change negative';
                 }
             });
         }
@@ -281,16 +183,14 @@ document.addEventListener('DOMContentLoaded', function() {
     let incidentsChart, incidentTypesChart;
 
     function initCharts(chartData) {
-        // Destroy existing charts if they exist
         if (incidentsChart) incidentsChart.destroy();
         if (incidentTypesChart) incidentTypesChart.destroy();
 
         if (!chartData) {
-            console.error('❌ No chart data received from backend');
+            console.error('❌ No chart data received');
             return;
         }
 
-        // Line Chart - Incidents Overview
         const incidentsCtx = document.getElementById('incidentsChart');
         if (incidentsCtx && chartData.overview) {
             incidentsChart = new Chart(incidentsCtx.getContext('2d'), {
@@ -307,32 +207,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         fill: true
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                drawBorder: false
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
 
-        // Bar Chart - Incident Types
         const typesCtx = document.getElementById('incidentTypesChart');
         if (typesCtx && chartData.types) {
             incidentTypesChart = new Chart(typesCtx.getContext('2d'), {
@@ -352,28 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         borderRadius: 5
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                drawBorder: false
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
     }
@@ -403,23 +260,15 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateNotifications(notifications) {
         const notificationBadge = document.querySelector('.notification-badge');
         const unreadCount = notifications.filter(n => !n.read).length;
-        
         if (notificationBadge) {
             notificationBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
             notificationBadge.style.display = unreadCount > 0 ? 'flex' : 'none';
         }
     }
 
-    // ... (keep the rest of the utility functions the same)
-    // Utility functions (getActivityIcon, getActivityStyle, formatTime, animateValue, etc.)
+    // ---------------- Utility Functions ----------------
     function getActivityIcon(type) {
-        const icons = {
-            message: 'fa-comment',
-            incident: 'fa-exclamation-triangle',
-            officer: 'fa-user-plus',
-            resolved: 'fa-check-circle',
-            default: 'fa-bell'
-        };
+        const icons = { message: 'fa-comment', incident: 'fa-exclamation-triangle', officer: 'fa-user-plus', resolved: 'fa-check-circle', default: 'fa-bell' };
         return icons[type] || icons.default;
     }
 
@@ -446,7 +295,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (minutes < 60) return `${minutes} minutes ago`;
         if (hours < 24) return `${hours} hours ago`;
         if (days < 7) return `${days} days ago`;
-        
         return time.toLocaleDateString();
     }
 
@@ -456,65 +304,39 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!startTimestamp) startTimestamp = timestamp;
             const progress = Math.min((timestamp - startTimestamp) / duration, 1);
             element.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
-            if (progress < 1) {
-                window.requestAnimationFrame(step);
-            }
+            if (progress < 1) window.requestAnimationFrame(step);
         };
         window.requestAnimationFrame(step);
     }
 
     function showLoadingState(show) {
-        if (show) {
-            document.body.style.opacity = '0.7';
-            document.body.style.pointerEvents = 'none';
-        } else {
-            document.body.style.opacity = '1';
-            document.body.style.pointerEvents = 'auto';
-        }
+        document.body.style.opacity = show ? '0.7' : '1';
+        document.body.style.pointerEvents = show ? 'none' : 'auto';
     }
 
     function showError(message) {
         console.error('Error:', message);
-        // You can replace this with a toast notification or modal
         const errorDiv = document.createElement('div');
         errorDiv.className = 'error-message';
-        errorDiv.innerHTML = `
-            <div style="background: #fee; border: 1px solid #fcc; padding: 10px; margin: 10px; border-radius: 5px; color: #c33;">
+        errorDiv.innerHTML = `<div style="background:#fee;border:1px solid #fcc;padding:10px;margin:10px;border-radius:5px;color:#c33;">
                 <strong>Error:</strong> ${message}
-            </div>
-        `;
+            </div>`;
         document.querySelector('.main').prepend(errorDiv);
-        
-        // Remove after 5 seconds
-        setTimeout(() => {
-            if (errorDiv.parentNode) {
-                errorDiv.parentNode.removeChild(errorDiv);
-            }
-        }, 5000);
+        setTimeout(() => { if (errorDiv.parentNode) errorDiv.parentNode.removeChild(errorDiv); }, 5000);
     }
 
-    function showSuccess(message) {
-        console.log('Success:', message);
-        // You can replace this with a toast notification
-        alert('Success: ' + message);
-    }
-
-    // Responsive adjustments
     window.addEventListener('resize', function() {
         if (window.innerWidth > 768 && sidebar) {
             sidebar.classList.remove('active');
             if (main) main.classList.remove('active');
         }
-        
         if (incidentsChart) incidentsChart.resize();
         if (incidentTypesChart) incidentTypesChart.resize();
     });
 
-    // Auto-refresh dashboard every 5 minutes
+    // Auto-refresh every 5 mins
     setInterval(() => {
         const token = localStorage.getItem('authToken');
-        if (token) {
-            initializeDashboard(token);
-        }
+        if (token) initializeDashboard(token);
     }, 5 * 60 * 1000);
 });
