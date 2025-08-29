@@ -1,179 +1,63 @@
-const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const Police = require('../models/Police');
 
-const authController = {
-  // Admin or system creates a new user
-  registerMongo: async (req, res) => {
-    try {
-      const { name, email, password, username, department, badgeNumber } = req.body;
+function sign(user) {
+  return jwt.sign(
+    { id: user._id, email: user.email, name: user.name, badgeId: user.badgeId },
+    process.env.JWT_SECRET || 'dev_secret',
+    { expiresIn: '7d' }
+  );
+}
 
-      if (!name || !email || !password) {
-        return res.status(400).json({ success: false, message: 'Name, email and password are required' });
-      }
-
-      const existingUser = await User.findOne({
-        $or: [
-          { email: email.toLowerCase() },
-          { username },
-          { badgeNumber }
-        ]
-      });
-
-      if (existingUser) {
-        let message = 'User already exists';
-        if (existingUser.email === email.toLowerCase()) message = 'Email already in use';
-        if (existingUser.username === username) message = 'Username already taken';
-        if (existingUser.badgeNumber === badgeNumber) message = 'Badge number already exists';
-        return res.status(400).json({ success: false, message });
-      }
-
-      // ✅ User.js pre('save') will hash password with argon2
-      const user = new User({
-        name,
-        email: email.toLowerCase(),
-        password,
-        username,
-        department,
-        badgeNumber
-      });
-
-      // Generate RSA key pair
-      const privateKey = user.generateKeyPair();
-      user.encryptedPrivateKey = privateKey; // ⚠️ store securely later
-
-      await user.save();
-
-      const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-      res.status(201).json({
-        success: true,
-        message: 'User registered successfully',
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          department: user.department,
-          badgeNumber: user.badgeNumber,
-          isAdmin: user.isAdmin,
-          publicKey: user.publicKey
-        }
-      });
-    } catch (err) {
-      console.error('Registration error:', err);
-      res.status(500).json({
-        success: false,
-        message: 'Registration failed',
-        error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
-      });
-    }
-  },
-
-  // Login
-  loginMongo: async (req, res) => {
-    try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({ success: false, message: 'Email and password are required' });
-      }
-
-      const user = await User.findOne({
-        email: email.toLowerCase(),
-        isActive: true
-      });
-
-      if (!user) {
-        return res.status(401).json({ success: false, message: 'Invalid email or password' });
-      }
-
-      // ✅ Check argon2 password
-      const isMatch = await user.comparePassword(password);
-      if (!isMatch) {
-        return res.status(401).json({ success: false, message: 'Invalid email or password' });
-      }
-
-      user.lastSeen = new Date();
-      await user.save();
-
-      const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-      res.status(200).json({
-        success: true,
-        message: 'Login successful',
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          department: user.department,
-          badgeNumber: user.badgeNumber,
-          isAdmin: user.isAdmin,
-          publicKey: user.publicKey
-        }
-      });
-    } catch (err) {
-      console.error('Login error:', err);
-      res.status(500).json({
-        success: false,
-        message: 'Login failed',
-        error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
-      });
-    }
-  },
-
-  // Current user
-  getCurrentUserMongo: async (req, res) => {
-    try {
-      const user = await User.findById(req.userId);
-      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-
-      res.status(200).json({
-        success: true,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          department: user.department,
-          badgeNumber: user.badgeNumber,
-          isAdmin: user.isAdmin,
-          publicKey: user.publicKey
-        }
-      });
-    } catch (err) {
-      console.error('Get user error:', err);
-      res.status(500).json({ success: false, message: 'Failed to get user' });
-    }
-  },
-
-  // Validate JWT token
-  validateTokenMongo: async (req, res) => {
-    try {
-      const user = await User.findById(req.userId);
-      if (!user) return res.status(401).json({ success: false, message: 'Invalid token' });
-
-      res.status(200).json({
-        success: true,
-        message: 'Token is valid',
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          username: user.username,
-          department: user.department,
-          badgeNumber: user.badgeNumber,
-          isAdmin: user.isAdmin,
-          publicKey: user.publicKey
-        }
-      });
-    } catch (err) {
-      console.error('Validate token error:', err);
-      res.status(500).json({ success: false, message: 'Failed to validate token' });
-    }
+// POST /api/auth/login
+exports.login = async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password are required' });
   }
+
+  // include password field explicitly (select: false on schema)
+  const user = await Police.findOne({ email: email.toLowerCase().trim() }).select('+password');
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  const ok = await user.comparePassword(password);
+  if (!ok) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  const token = sign(user);
+  const safeUser = {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    badgeId: user.badgeId,
+    rank: user.rank,
+    department: user.department,
+    status: user.status,
+  };
+
+  return res.json({ success: true, token, user: safeUser });
 };
 
-module.exports = authController;
+// (optional) POST /api/auth/register  — for seeding from UI; remove in prod
+exports.register = async (req, res) => {
+  const { name, email, password, phone, badgeId, rank, department } = req.body || {};
+  if (!name || !email || !password) {
+    return res.status(400).json({ success: false, message: 'name, email, password required' });
+  }
+  const exists = await Police.findOne({ email: email.toLowerCase().trim() });
+  if (exists) return res.status(409).json({ success: false, message: 'Email already exists' });
+
+  const u = await Police.create({ name, email, password, phone, badgeId, rank, department });
+  return res.status(201).json({ success: true, id: u._id });
+};
+
+// GET /api/auth/me
+exports.me = async (req, res) => {
+  const user = await Police.findById(req.user.id).lean();
+  if (!user) return res.status(404).json({ success: false, message: 'Not found' });
+  delete user.password;
+  res.json({ success: true, user });
+};
